@@ -25,14 +25,14 @@ def image_bbox(image_path):
 			_, contours, _ = cv2.findContours(B, cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
 			for c in contours:
 				x, y, w, h = cv2.boundingRect(c)
-				contour_stack.append([i, x, x + w, y, y + h])
+				contour_stack.append([i, y, x, y + h, x + w])
 	contour_stack = np.array(contour_stack, dtype = np.uint16)
 	return contour_stack
 
 
 if __name__ == '__main__':
 	#generate for all images.
-	data_path = "/media/aryan/DATA/Dataset_pedestrian/Small_Obstacle_Dataset"
+	data_path = "/scratch/aryansakaria/SmallObstacle/Small_Obstacle_Dataset"
 	# img_list = []
 	# save_list = []
 	for split in os.listdir(data_path):
@@ -54,6 +54,7 @@ if __name__ == '__main__':
 				# img_list.append(img_path)
 				# save_list.append(save_path)
 				bbox_data = image_bbox(img_path)
+				bbox_data = bbox_data.astype(np.int16)
 				np.save(save_path, bbox_data)
 				print(save_path)
 				# print(bbox_data)

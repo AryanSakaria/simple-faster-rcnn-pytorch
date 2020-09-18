@@ -62,8 +62,7 @@ class SODBboxDataset:
 
     """
 
-    def __init__(self, data_dir, split='train',
-                 use_difficult=False, return_difficult=False,
+    def __init__(self, data_dir, split='train'
                  ):
 
         # if split not in ['train', 'trainval', 'val']:
@@ -73,17 +72,19 @@ class SODBboxDataset:
         #             'for 2012 dataset. For 2007 dataset, you can pick \'test\''
         #             ' in addition to the above mentioned splits.'
         #         )
-        id_list_file = os.path.join(
-            data_dir, 'ImageSets/Main/{0}.txt'.format(split))
-
-        self.ids = [id_.strip() for id_ in open(id_list_file)]
+        seq_list = os.path.join(data_dir, split)
+        seqs = [os.path.join(seq_list, i)
+                for i in os.listdir(seq_list)]
+        images = [ (image[:-4], seq)
+                  for seq in seqs
+                  for image in os.listdir(os.path.join(seq, "image"))]
+        self.images = images
+        # self.ids = [id_.strip() for id_ in open(id_list_file)]
         self.data_dir = data_dir
-        self.use_difficult = use_difficult
-        self.return_difficult = return_difficult
-        self.label_names = VOC_BBOX_LABEL_NAMES
+        self.label_names = SOD_BBOX_LABEL_NAMES
 
     def __len__(self):
-        return len(self.ids)
+        return len(self.images)
 
     def get_example(self, i):
         """Returns the i-th example.
@@ -98,60 +99,72 @@ class SODBboxDataset:
             tuple of an image and bounding boxes
 
         """
-        id_ = self.ids[i]
-        anno = ET.parse(
-            os.path.join(self.data_dir, 'Annotations', id_ + '.xml'))
-        bbox = list()
-        label = list()
-        difficult = list()
-        for obj in anno.findall('object'):
-            # when in not using difficult split, and the object is
-            # difficult, skipt it.
-            if not self.use_difficult and int(obj.find('difficult').text) == 1:
-                continue
+        img_num = self.images[i][0]
+        seq_num = self.images[i][1]
+        img_path = os.path.join(seq_num, "image")
+        img_path = os.path.join(img_path, img_num + '.png')
 
-            difficult.append(int(obj.find('difficult').text))
-            bndbox_anno = obj.find('bndbox')
-            # subtract 1 to make pixel indexes 0-based
-            bbox.append([
-                int(bndbox_anno.find(tag).text) - 1
-                for tag in ('ymin', 'xmin', 'ymax', 'xmax')])
-            name = obj.find('name').text.lower().strip()
-            label.append(VOC_BBOX_LABEL_NAMES.index(name))
-        bbox = np.stack(bbox).astype(np.float32)
-        label = np.stack(label).astype(np.int32)
+        bbox_path = os.path.join(seq_num, "bbox")
+        bbox_path = os.path.join(bbox_path, img_num + '.npy')
+
+        img = read_image(img_path)
+        print(self.images[i])
+        bbox = np.load(bbox_path)
+        print("BBOOBBBXXXX PRINTINNGGG")
+        print(bbox)
+        print(bbox.shape)
+        if(len(bbox) < 1):
+            labels = []
+            bbox = []
+        else:
+            labels = bbox[:, 0]
+            bbox = bbox[:, 1:5]
+        # difficult = [False
+        #              for i in range(len(labels))]
+        # difficult = np.array(difficult, dtype=np.bool).astype(np.uint8)  # PyTorch don't support np.bool
+        # difficult = np.array(difficult)
+        return img, bbox, labels
+
+        # id_ = self.ids[i]
+        # anno = ET.parse(
+        #     os.path.join(self.data_dir, 'Annotations', id_ + '.xml'))
+        # bbox = list()
+        # label = list()
+        # difficult = list()
+        # for obj in anno.findall('object'):
+        #     # when in not using difficult split, and the object is
+        #     # difficult, skipt it.
+        #     if not self.use_difficult and int(obj.find('difficult').text) == 1:
+        #         continue
+        #
+        #     difficult.append(int(obj.find('difficult').text))
+        #     bndbox_anno = obj.find('bndbox')
+        #     # subtract 1 to make pixel indexes 0-based
+        #     bbox.append([
+        #         int(bndbox_anno.find(tag).text) - 1
+        #         for tag in ('ymin', 'xmin', 'ymax', 'xmax')])
+        #     name = obj.find('name').text.lower().strip()
+        #     label.append(VOC_BBOX_LABEL_NAMES.index(name))
+        # bbox = np.stack(bbox).astype(np.float32)
+        # label = np.stack(label).astype(np.int32)
         # When `use_difficult==False`, all elements in `difficult` are False.
-        difficult = np.array(difficult, dtype=np.bool).astype(np.uint8)  # PyTorch don't support np.bool
 
         # Load a image
-        img_file = os.path.join(self.data_dir, 'JPEGImages', id_ + '.jpg')
-        img = read_image(img_file, color=True)
+        # img_file = os.path.join(self.data_dir, 'JPEGImages', id_ + '.jpg')
+        # img = read_image(img_file, color=True)
 
         # if self.return_difficult:
         #     return img, bbox, label, difficult
-        return img, bbox, label, difficult
+        # return img, bbox, label, difficult
 
     __getitem__ = get_example
 
 
-VOC_BBOX_LABEL_NAMES = (
-    'aeroplane',
-    'bicycle',
-    'bird',
-    'boat',
-    'bottle',
-    'bus',
-    'car',
-    'cat',
-    'chair',
-    'cow',
-    'diningtable',
-    'dog',
-    'horse',
-    'motorbike',
-    'person',
-    'pottedplant',
-    'sheep',
-    'sofa',
-    'train',
-    'tvmonitor')
+SOD_BBOX_LABEL_NAMES = (
+    'off_road',
+    'road',
+    'obs1',
+    'obs2',
+    'obs3',
+    'obs4',
+    'obs5')
